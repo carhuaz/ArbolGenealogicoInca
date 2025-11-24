@@ -1,6 +1,7 @@
 #include <iostream>
 #include <string>
 #include <queue>
+#include <vector>
 #include <iomanip>   // setw, left
 using namespace std;
 
@@ -59,20 +60,7 @@ private:
     // historial simple de operaciones (cadena)
     vector<string> historial;
 
-    /* Inserción recursiva (ABB por nombre) */
-    Miembro* insertarRec(Miembro* nodo, Miembro* nuevo) {
-        if (nodo == NULL) return nuevo;
-
-        if (nuevo->nombre < nodo->nombre) {
-            nodo->izquierdo = insertarRec(nodo->izquierdo, nuevo);
-        } else if (nuevo->nombre > nodo->nombre) {
-            nodo->derecho = insertarRec(nodo->derecho, nuevo);
-        } else {
-            // duplicado: no insertar
-            return nodo;
-        }
-        return nodo;
-    }
+  
 
     /* Búsqueda recursiva por nombre */
     Miembro* buscarRec(Miembro* nodo, const string &nombre) {
@@ -152,6 +140,177 @@ private:
         sprintf(buffer, "%d", x);
         return string(buffer);
     }
+    /* ---------- FUNCIONES AVL (PARTE 2) ---------- */
+
+// Obtener altura de un nodo
+int obtenerAltura(Miembro* nodo) {
+    if (nodo == NULL) return 0;
+    return nodo->altura;
+}
+
+// Calcular factor de balance
+int obtenerBalance(Miembro* nodo) {
+    if (nodo == NULL) return 0;
+    return obtenerAltura(nodo->izquierdo) - obtenerAltura(nodo->derecho);
+}
+
+// Actualizar altura de un nodo
+void actualizarAltura(Miembro* nodo) {
+    if (nodo == NULL) return;
+    int altIzq = obtenerAltura(nodo->izquierdo);
+    int altDer = obtenerAltura(nodo->derecho);
+    nodo->altura = 1 + (altIzq > altDer ? altIzq : altDer);
+}
+
+// Rotación simple derecha (LL)
+Miembro* rotacionDerecha(Miembro* y) {
+    Miembro* x = y->izquierdo;
+    Miembro* T2 = x->derecho;
+
+    x->derecho = y;
+    y->izquierdo = T2;
+
+    actualizarAltura(y);
+    actualizarAltura(x);
+
+    return x;
+}
+
+// Rotación simple izquierda (RR)
+Miembro* rotacionIzquierda(Miembro* x) {
+    Miembro* y = x->derecho;
+    Miembro* T2 = y->izquierdo;
+
+    y->izquierdo = x;
+    x->derecho = T2;
+
+    actualizarAltura(x);
+    actualizarAltura(y);
+
+    return y;
+}
+
+// Balancear nodo (LL, RR, LR, RL)
+Miembro* balancear(Miembro* nodo) {
+    if (nodo == NULL) return nodo;
+
+    actualizarAltura(nodo);
+    int balance = obtenerBalance(nodo);
+
+    if (balance > 1 && obtenerBalance(nodo->izquierdo) >= 0)
+        return rotacionDerecha(nodo);
+
+    if (balance > 1 && obtenerBalance(nodo->izquierdo) < 0) {
+        nodo->izquierdo = rotacionIzquierda(nodo->izquierdo);
+        return rotacionDerecha(nodo);
+    }
+
+    if (balance < -1 && obtenerBalance(nodo->derecho) <= 0)
+        return rotacionIzquierda(nodo);
+
+    if (balance < -1 && obtenerBalance(nodo->derecho) > 0) {
+        nodo->derecho = rotacionDerecha(nodo->derecho);
+        return rotacionIzquierda(nodo);
+    }
+
+    return nodo;
+}
+
+// Inserción recursiva con balanceo AVL
+Miembro* insertarRecAVL(Miembro* nodo, Miembro* nuevo) {
+    if (nodo == NULL) return nuevo;
+
+    if (nuevo->nombre < nodo->nombre)
+        nodo->izquierdo = insertarRecAVL(nodo->izquierdo, nuevo);
+    else if (nuevo->nombre > nodo->nombre)
+        nodo->derecho = insertarRecAVL(nodo->derecho, nuevo);
+    else
+        return nodo; // duplicado
+
+    return balancear(nodo);
+}
+
+// Encontrar nodo mínimo (sucesor inorden)
+Miembro* encontrarMinimo(Miembro* nodo) {
+    while (nodo->izquierdo != NULL) nodo = nodo->izquierdo;
+    return nodo;
+}
+
+// Eliminación recursiva con balanceo AVL
+Miembro* eliminarRec(Miembro* nodo, const string &nombre, bool &eliminado) {
+    if (nodo == NULL) {
+        eliminado = false;
+        return NULL;
+    }
+
+    if (nombre < nodo->nombre)
+        nodo->izquierdo = eliminarRec(nodo->izquierdo, nombre, eliminado);
+    else if (nombre > nodo->nombre)
+        nodo->derecho = eliminarRec(nodo->derecho, nombre, eliminado);
+    else {
+        eliminado = true;
+
+        if (nodo->izquierdo == NULL) {
+            Miembro* temp = nodo->derecho;
+            delete nodo;
+            return temp;
+        } else if (nodo->derecho == NULL) {
+            Miembro* temp = nodo->izquierdo;
+            delete nodo;
+            return temp;
+        }
+
+        Miembro* sucesor = encontrarMinimo(nodo->derecho);
+        nodo->nombre = sucesor->nombre;
+        nodo->edad = sucesor->edad;
+        nodo->genero = sucesor->genero;
+        nodo->relacionFamiliar = sucesor->relacionFamiliar;
+        nodo->ocupacion = sucesor->ocupacion;
+        nodo->lugarNacimiento = sucesor->lugarNacimiento;
+
+        nodo->derecho = eliminarRec(nodo->derecho, sucesor->nombre, eliminado);
+    }
+
+    return balancear(nodo);
+}
+
+/* ---------- ESTADÍSTICAS AVANZADAS (PARTE 2) ---------- */
+
+void sumarEdades(Miembro* nodo, int &suma, int &contador) {
+    if (nodo == NULL) return;
+    suma += nodo->edad;
+    contador++;
+    sumarEdades(nodo->izquierdo, suma, contador);
+    sumarEdades(nodo->derecho, suma, contador);
+}
+
+void encontrarEdadMaxima(Miembro* nodo, int &maxEdad) {
+    if (nodo == NULL) return;
+    if (nodo->edad > maxEdad) maxEdad = nodo->edad;
+    encontrarEdadMaxima(nodo->izquierdo, maxEdad);
+    encontrarEdadMaxima(nodo->derecho, maxEdad);
+}
+
+void encontrarEdadMinima(Miembro* nodo, int &minEdad) {
+    if (nodo == NULL) return;
+    if (nodo->edad < minEdad) minEdad = nodo->edad;
+    encontrarEdadMinima(nodo->izquierdo, minEdad);
+    encontrarEdadMinima(nodo->derecho, minEdad);
+}
+
+void contarPorRelacion(Miembro* nodo, const string &relacion, int &contador) {
+    if (nodo == NULL) return;
+    if (nodo->relacionFamiliar == relacion) contador++;
+    contarPorRelacion(nodo->izquierdo, relacion, contador);
+    contarPorRelacion(nodo->derecho, relacion, contador);
+}
+
+bool esAVLBalanceado(Miembro* nodo) {
+    if (nodo == NULL) return true;
+    int balance = obtenerBalance(nodo);
+    if (balance < -1 || balance > 1) return false;
+    return esAVLBalanceado(nodo->izquierdo) && esAVLBalanceado(nodo->derecho);
+}
 
 public:
     ArbolGenealogico() {
@@ -159,21 +318,6 @@ public:
         historial.clear();
     }
 
-    /* ---------- Inserción pública (verifica duplicados) ---------- */
-    bool insertarMiembro(const string &nombre, int edad,
-                         const string &genero, const string &relacion,
-                         const string &ocupacion, const string &lugarNacimiento)
-    {
-        if (nombre.size() == 0) return false;
-        if (buscarMiembro(nombre) != NULL) {
-            // no insertar duplicados
-            return false;
-        }
-        Miembro* nuevo = new Miembro(nombre, edad, genero, relacion, ocupacion, lugarNacimiento);
-        raiz = insertarRec(raiz, nuevo);
-        historial.push_back(string("INSERTAR: ") + nombre);
-        return true;
-    }
 
     /* ---------- Búsqueda pública ---------- */
     Miembro* buscarMiembro(const string &nombre) {
@@ -268,16 +412,6 @@ public:
         }
         cout << "-----------------------------------------------------------------\n";
     }
-
-    /* ---------- Estadísticas (parte 1) ---------- */
-    int contarMiembros() {
-        return contarRec(raiz);
-    }
-
-    int profundidadArbol() {
-        return profundidadRec(raiz);
-    }
-
     /* ---------- Historial simple ---------- */
     void mostrarHistorial() {
         cout << "\n=== Historial de operaciones (sesión) ===\n";
@@ -291,20 +425,98 @@ public:
     }
 
     /* ---------- Cargar datos de ejemplo (útil para demo) ---------- */
-    void cargarDatosEjemplo() {
-        // Inserciones representativas
-        insertarMiembro("Manco Cápac", 70, "Masculino", "Fundador", "Sapa Inca legendario", "Titicaca");
-        insertarMiembro("Sinchi Roca", 48, "Masculino", "Sucesor", "Noble", "Cusco");
-        insertarMiembro("Lloque Yupanqui", 45, "Masculino", "Ancestro legendario", "Noble", "Cusco");
-        insertarMiembro("Mayta Capac", 60, "Masculino", "Antepasado", "Sapa Inca", "Cusco");
-        insertarMiembro("Pachacutec", 55, "Masculino", "Sapa Inca", "Emperador - Reformador", "Cusco");
-        insertarmeHistorial("CARGA_INICIAL: Datos del Tahuantinsuyo insertados");
-    }
+   void cargarDatosEjemplo() {
+    // Inserciones representativas
+    insertarMiembroAVL("Manco Cápac", 70, "Masculino", "Fundador", "Sapa Inca legendario", "Titicaca");
+    insertarMiembroAVL("Sinchi Roca", 48, "Masculino", "Sucesor", "Noble", "Cusco");
+    insertarMiembroAVL("Lloque Yupanqui", 45, "Masculino", "Ancestro legendario", "Noble", "Cusco");
+    insertarMiembroAVL("Mayta Capac", 60, "Masculino", "Antepasado", "Sapa Inca", "Cusco");
+    insertarMiembroAVL("Pachacutec", 55, "Masculino", "Sapa Inca", "Emperador - Reformador", "Cusco");
 
+    insertarmeHistorial("CARGA_INICIAL: Datos del Tahuantinsuyo insertados");
+}
     /* helper para agregar evento al historial sin repetición */
     void insertarmeHistorial(const string &s) {
         historial.push_back(s);
     }
+    /* ---------- INSERCIÓN CON AVL ---------- */
+bool insertarMiembroAVL(const string &nombre, int edad,
+                        const string &genero, const string &relacion,
+                        const string &ocupacion, const string &lugarNacimiento)
+{
+    if (nombre.size() == 0) return false;
+    if (buscarMiembro(nombre) != NULL) return false;
+
+    Miembro* nuevo = new Miembro(nombre, edad, genero, relacion, ocupacion, lugarNacimiento);
+    raiz = insertarRecAVL(raiz, nuevo);
+    historial.push_back(string("INSERTAR AVL: ") + nombre);
+    return true;
+}
+
+/* ---------- ELIMINACIÓN ---------- */
+bool eliminarMiembro(const string &nombre) {
+    if (nombre.empty()) return false;
+    bool eliminado = false;
+    raiz = eliminarRec(raiz, nombre, eliminado);
+    if (eliminado) historial.push_back(string("ELIMINAR: ") + nombre);
+    return eliminado;
+}
+
+/* ---------- ESTADÍSTICAS AVANZADAS ---------- */
+void mostrarEstadisticasAvanzadas() {
+    cout << "\n========== ESTADISTICAS AVANZADAS ==========\n";
+
+    int total = contarRec(raiz);
+    cout << "Total de miembros: " << total << "\n";
+
+    if (total == 0) {
+        cout << "No hay miembros en el arbol.\n";
+        cout << "===========================================\n";
+        return;
+    }
+
+    int suma = 0, contador = 0;
+    sumarEdades(raiz, suma, contador);
+    double promedio = (double)suma / contador;
+    cout << "Edad promedio: " << promedio << " años\n";
+
+    int maxEdad = 0;
+    encontrarEdadMaxima(raiz, maxEdad);
+    cout << "Edad maxima: " << maxEdad << " años\n";
+
+    int minEdad = 999;
+    encontrarEdadMinima(raiz, minEdad);
+    cout << "Edad minima: " << minEdad << " años\n";
+
+    cout << "Profundidad del arbol: " << profundidadRec(raiz) << " niveles\n";
+
+    bool balanceado = esAVLBalanceado(raiz);
+    cout << "Estado AVL: " << (balanceado ? "BALANCEADO" : "DESBALANCEADO") << "\n";
+
+    cout << "===========================================\n";
+}
+
+void mostrarConteoRelaciones() {
+    cout << "\n========== CONTEO POR RELACION FAMILIAR ==========\n";
+
+    string relaciones[] = {"Sapa Inca", "Fundador", "Sucesor", "Principe",
+                           "Hijo", "Nieto", "Emperador", "Noble", 
+                           "Ancestro legendario", "Antepasado"};
+    int numRelaciones = 10;
+    bool hayResultados = false;
+
+    for (int i = 0; i < numRelaciones; i++) {
+        int count = 0;
+        contarPorRelacion(raiz, relaciones[i], count);
+        if (count > 0) {
+            cout << relaciones[i] << ": " << count << " miembro(s)\n";
+            hayResultados = true;
+        }
+    }
+
+    if (!hayResultados) cout << "No se encontraron relaciones registradas.\n";
+    cout << "==================================================\n";
+	}	
 };
 
 /* ---------------------------
@@ -324,18 +536,20 @@ int main() {
     arbol.cargarDatosEjemplo();
 
     while (true) {
-        cout << "\n--- MENÚ PRINCIPAL ---\n";
-        cout << "1. Insertar nuevo miembro\n";
+        cout << "\n--- MENU PRINCIPAL ---\n";
+        cout << "1. Insertar nuevo miembro con AVL\n";
         cout << "2. Buscar miembro por nombre\n";
         cout << "3. Modificar miembro\n";
         cout << "4. Mostrar PREORDEN (Antigüedad)\n";
         cout << "5. Mostrar INORDEN (Estructura lateral)\n";
         cout << "6. Mostrar POSTORDEN (Descendientes ? Ancestro)\n";
         cout << "7. Mostrar POR NIVELES\n";
-        cout << "8. Estadísticas (total, profundidad)\n";
+        cout << "8. Estadísticas\n";
         cout << "9. Historial de operaciones\n";
+		cout << "10. Eliminar miembro\n";
+		cout << "11. Conteo por relacion familiar\n";	
         cout << "0. Salir\n";
-        cout << "Seleccione una opción: ";
+        cout << "Seleccione una opcion: ";
 
         if (!(cin >> opcion)) {
             cout << "Entrada inválida. Intentar de nuevo.\n";
@@ -350,21 +564,18 @@ int main() {
         }
 
         if (opcion == 1) {
-            string nombre, genero, relacion, ocupacion, lugar;
-            int edad;
-            cout << "Nombre: "; getline(cin, nombre);
-            cout << "Edad: "; cin >> edad; limpar:
-            // NOTE: Dev-C++ 5.11 sometimes needs clearing after reading int
-            // We'll clear the newline after reading edad
-            limpiarEntradas();
-            cout << "Género: "; getline(cin, genero);
-            cout << "Relación familiar: "; getline(cin, relacion);
-            cout << "Ocupación: "; getline(cin, ocupacion);
-            cout << "Lugar de nacimiento: "; getline(cin, lugar);
-            bool ok = arbol.insertarMiembro(nombre, edad, genero, relacion, ocupacion, lugar);
-            if (ok) cout << "Miembro insertado correctamente.\n";
-            else cout << "No se insertó (posible duplicado o nombre vacío).\n";
-        }
+           string nombre, genero, relacion, ocupacion, lugar;
+    	int edad;
+    	cout << "Nombre: "; getline(cin, nombre);
+    	cout << "Edad: "; cin >> edad; limpiarEntradas();
+    	cout << "Genero: "; getline(cin, genero);
+    	cout << "Relación familiar: "; getline(cin, relacion);
+    	cout << "Ocupacion: "; getline(cin, ocupacion);
+    	cout << "Lugar de nacimiento: "; getline(cin, lugar);
+    	bool ok = arbol.insertarMiembroAVL(nombre, edad, genero, relacion, ocupacion, lugar);
+    	if (ok) cout << "Miembro insertado con balanceo AVL.\n";
+    	else cout << "No se inserto (posible duplicado o nombre vacio).\n";
+		}
         else if (opcion == 2) {
             string nombre;
             cout << "Nombre a buscar: "; getline(cin, nombre);
@@ -377,8 +588,8 @@ int main() {
             int nuevaEdad;
             cout << "Nombre del miembro a modificar: "; getline(cin, nombre);
             cout << "Nueva edad: "; cin >> nuevaEdad; limpiarEntradas();
-            cout << "Nueva ocupación: "; getline(cin, nuevaOcup);
-            cout << "Nueva relación familiar: "; getline(cin, nuevaRel);
+            cout << "Nueva ocupacion: "; getline(cin, nuevaOcup);
+            cout << "Nueva relacion familiar: "; getline(cin, nuevaRel);
             bool ok = arbol.modificarMiembro(nombre, nuevaEdad, nuevaOcup, nuevaRel);
             if (ok) cout << "Miembro modificado correctamente.\n";
             else cout << "Miembro no encontrado.\n";
@@ -396,15 +607,23 @@ int main() {
             arbol.mostrarPorNiveles();
         }
         else if (opcion == 8) {
-            cout << "\n=== Estadísticas ===\n";
-            cout << "Total de miembros: " << arbol.contarMiembros() << "\n";
-            cout << "Profundidad (generaciones aprox.): " << arbol.profundidadArbol() << "\n";
+            arbol.mostrarEstadisticasAvanzadas();
         }
         else if (opcion == 9) {
             arbol.mostrarHistorial();
         }
+		else if (opcion == 10) {
+    	string nombre;
+    	cout << "Nombre del miembro a ELIMINAR: "; getline(cin, nombre);
+    	bool ok = arbol.eliminarMiembro(nombre);
+    	if (ok) cout << "Miembro eliminado y arbol rebalanceado (AVL).\n";
+    	else cout << "Miembro no encontrado.\n";
+		}
+		else if (opcion == 11) {
+    	arbol.mostrarConteoRelaciones();
+		}
         else {
-            cout << "Opción no válida. Intente nuevamente.\n";
+            cout << "Opcion no valida. Intente nuevamente.\n";
         }
     }
 
