@@ -426,6 +426,179 @@ private:
         return esAVLBalanceado(nodo->izquierdo) && esAVLBalanceado(nodo->derecho);
     }
 
+/* ========== FUNCIONES DE VISUALIZACION DEL DIAGRAMA ========== */
+
+    /**
+     * Obtiene el nombre abreviado para el diagrama (primeras letras)
+     * @param nombre Nombre completo
+     * @return Nombre abreviado (max 3 caracteres)
+     */
+    string obtenerAbreviatura(const string &nombre) {
+        if (nombre.length() <= 3) return nombre;
+        
+        string abrev = "";
+        bool tomarLetra = true;
+        
+        for (size_t i = 0; i < nombre.length() && abrev.length() < 3; i++) {
+            if (nombre[i] == ' ') {
+                tomarLetra = true;
+            } else if (tomarLetra && nombre[i] != ' ') {
+                abrev += nombre[i];
+                tomarLetra = false;
+            }
+        }
+        
+        if (abrev.length() == 0) abrev = nombre.substr(0, 3);
+        return abrev;
+    }
+
+    /**
+     * Imprime el arbol de forma horizontal recursiva
+     * @param nodo Nodo actual
+     * @param espacio Espaciado para la indentacion
+     * @param esIzquierdo Indica si es hijo izquierdo o derecho
+     */
+    void imprimirArbolHorizontal(Miembro* nodo, string espacio, bool esIzquierdo) {
+        if (nodo == NULL) return;
+
+        // Procesar primero el subarbol derecho (arriba en la visualizacion)
+        if (nodo->derecho != NULL) {
+            imprimirArbolHorizontal(nodo->derecho, espacio + "        ", false);
+        }
+
+        // Imprimir el nodo actual
+        cout << espacio;
+        if (espacio != "") {
+            cout << (esIzquierdo ? "\\_____ " : "/_____ ");
+        }
+        cout << "[" << obtenerAbreviatura(nodo->nombre) << "]" << endl;
+
+        // Procesar el subarbol izquierdo (abajo en la visualizacion)
+        if (nodo->izquierdo != NULL) {
+            imprimirArbolHorizontal(nodo->izquierdo, espacio + "        ", true);
+        }
+    }
+
+    /**
+     * Estructura para almacenar informacion de posicion de nodos
+     */
+    struct NodoPosicion {
+        Miembro* nodo;
+        int x, y;
+        NodoPosicion(Miembro* n, int px, int py) : nodo(n), x(px), y(py) {}
+    };
+
+    /**
+     * Imprime el diagrama del arbol de forma vertical (mejorado)
+     */
+    void imprimirDiagramaVertical() {
+        if (raiz == NULL) {
+            cout << "\n(Arbol vacio)\n";
+            return;
+        }
+
+        const int ANCHO_CELDA = 8;
+        const int ALTURA_NIVEL = 3;
+        
+        // Calcular dimensiones
+        int profundidad = profundidadRec(raiz);
+        int anchoTotal = (1 << profundidad) * ANCHO_CELDA;
+        int altoTotal = profundidad * ALTURA_NIVEL + 2;
+
+        // Crear matriz de caracteres
+        vector<string> canvas(altoTotal, string(anchoTotal, ' '));
+
+        // Cola para BFS con posiciones
+        queue<NodoPosicion> cola;
+        int posicionInicial = anchoTotal / 2;
+        cola.push(NodoPosicion(raiz, posicionInicial, 0));
+
+        // Procesar nodos por nivel
+        while (!cola.empty()) {
+            NodoPosicion actual = cola.front();
+            cola.pop();
+
+            if (actual.nodo == NULL) continue;
+
+            // Dibujar el nodo
+            string abrev = obtenerAbreviatura(actual.nodo->nombre);
+            int y = actual.y * ALTURA_NIVEL;
+            int x = actual.x;
+
+            // Dibujar el circulo con el nombre
+            if (y < altoTotal && x >= 2 && x + 4 < anchoTotal) {
+                canvas[y][x-2] = '.';
+                canvas[y][x-1] = '-';
+                canvas[y][x] = '-';
+                canvas[y][x+1] = '-';
+                canvas[y][x+2] = '.';
+                
+                if (y+1 < altoTotal) {
+                    canvas[y+1][x-2] = '|';
+                    for (size_t i = 0; i < abrev.length() && i < 3; i++) {
+                        if (x-1+i < anchoTotal) {
+                            canvas[y+1][x-1+i] = abrev[i];
+                        }
+                    }
+                    canvas[y+1][x+2] = '|';
+                }
+                
+                if (y+2 < altoTotal) {
+                    canvas[y+2][x-2] = '\'';
+                    canvas[y+2][x-1] = '-';
+                    canvas[y+2][x] = '-';
+                    canvas[y+2][x+1] = '-';
+                    canvas[y+2][x+2] = '\'';
+                }
+            }
+
+            // Calcular posiciones de los hijos
+            int separacion = anchoTotal / (1 << (actual.y + 2));
+            
+            // Dibujar conexiones y agregar hijos a la cola
+            if (actual.nodo->izquierdo != NULL) {
+                int xIzq = x - separacion;
+                int yHijo = (actual.y + 1) * ALTURA_NIVEL;
+                
+                // Dibujar linea diagonal hacia la izquierda
+                if (y+3 < altoTotal && xIzq < anchoTotal) {
+                    int pasos = (xIzq < x) ? (x - xIzq) : (xIzq - x);
+                    for (int i = 1; i <= pasos && y+2+i < altoTotal; i++) {
+                        int posX = x - i;
+                        if (posX >= 0 && posX < anchoTotal) {
+                            canvas[y+2+i][posX] = '/';
+                        }
+                    }
+                }
+                
+                cola.push(NodoPosicion(actual.nodo->izquierdo, xIzq, actual.y + 1));
+            }
+
+            if (actual.nodo->derecho != NULL) {
+                int xDer = x + separacion;
+                int yHijo = (actual.y + 1) * ALTURA_NIVEL;
+                
+                // Dibujar linea diagonal hacia la derecha
+                if (y+3 < altoTotal && xDer < anchoTotal) {
+                    int pasos = (xDer > x) ? (xDer - x) : (x - xDer);
+                    for (int i = 1; i <= pasos && y+2+i < altoTotal; i++) {
+                        int posX = x + i;
+                        if (posX >= 0 && posX < anchoTotal) {
+                            canvas[y+2+i][posX] = '\\';
+                        }
+                    }
+                }
+                
+                cola.push(NodoPosicion(actual.nodo->derecho, xDer, actual.y + 1));
+            }
+        }
+
+        // Imprimir el canvas
+        for (size_t i = 0; i < canvas.size(); i++) {
+            cout << canvas[i] << endl;
+        }
+    }
+
 public:
     /**
      * Constructor: Inicializa el arbol vacio
@@ -581,6 +754,8 @@ public:
         insertarMiembroAVL("Lloque Yupanqui", 45, "Masculino", "Ancestro legendario", "Noble", "Cusco");
         insertarMiembroAVL("Mayta Capac", 60, "Masculino", "Antepasado", "Sapa Inca", "Cusco");
         insertarMiembroAVL("Pachacutec", 55, "Masculino", "Sapa Inca", "Emperador - Reformador", "Cusco");
+        insertarMiembroAVL("Tupac Yupanqui", 50, "Masculino", "Hijo", "Emperador", "Cusco");
+        insertarMiembroAVL("Huayna Capac", 45, "Masculino", "Nieto", "Ultimo gran Sapa Inca", "Cusco");
 
         insertarmeHistorial("CARGA_INICIAL: Datos del Tahuantinsuyo insertados");
     }
@@ -682,6 +857,38 @@ public:
 
         if (!hayResultados) cout << "No se encontraron relaciones registradas.\n";
         cout << "==================================================\n";
+    }
+
+    /**
+     * Muestra el diagrama visual del arbol
+     */
+    void mostrarDiagramaArbol() {
+        cout << "\n+---------------------------------------------------------------+\n";
+        cout << "¦       DIAGRAMA VISUAL DEL ARBOL GENEALOGICO (AVL)            ¦\n";
+        cout << "+---------------------------------------------------------------+\n\n";
+        
+        if (raiz == NULL) {
+            cout << "  (Arbol vacio - No hay miembros registrados)\n\n";
+            return;
+        }
+
+        cout << "Leyenda: [Abr] = Abreviatura del nombre\n";
+        cout << "         /     = Rama izquierda (menor alfabeticamente)\n";
+        cout << "         \\     = Rama derecha (mayor alfabeticamente)\n\n";
+        
+        cout << "VISTA HORIZONTAL (izquierda=arriba, derecha=abajo):\n";
+        cout << "---------------------------------------------------\n";
+        imprimirArbolHorizontal(raiz, "", false);
+        
+        cout << "\n\nVISTA VERTICAL (estructura de arbol):\n";
+        cout << "--------------------------------------\n";
+        imprimirDiagramaVertical();
+        
+        cout << "\n---------------------------------------------------------------\n";
+        cout << "Estadisticas: " << contarRec(raiz) << " miembros, ";
+        cout << "Profundidad: " << profundidadRec(raiz) << " niveles\n";
+        cout << "Balance AVL: " << (esAVLBalanceado(raiz) ? "CORRECTO" : "REQUIERE AJUSTE") << "\n";
+        cout << "---------------------------------------------------------------\n";
     }
 };
 
@@ -842,7 +1049,7 @@ void submenuRecorridos(ArbolGenealogico &arbol) {
     do {
         limpiarPantalla();
         cout << "\n+----------------------------------------+\n";
-        cout << "¦     SUBMENU: RECORRIDOS DEL ARBOL      ¦\n";
+        cout << "?     SUBMENU: RECORRIDOS DEL ARBOL      ?\n";
         cout << "+----------------------------------------+\n";
         cout << "  1. Recorrido PREORDEN\n";
         cout << "  2. Recorrido INORDEN (Orden alfabetico)\n";
@@ -889,7 +1096,7 @@ void submenuEstadisticas(ArbolGenealogico &arbol) {
     do {
         limpiarPantalla();
         cout << "\n+----------------------------------------+\n";
-        cout << "¦      SUBMENU: ESTADISTICAS             ¦\n";
+        cout << "?      SUBMENU: ESTADISTICAS             ?\n";
         cout << "+----------------------------------------+\n";
         cout << "  1. Estadisticas avanzadas\n";
         cout << "  2. Conteo por relacion familiar\n";
@@ -929,7 +1136,7 @@ void submenuEstadisticas(ArbolGenealogico &arbol) {
 void insertarNuevoMiembro(ArbolGenealogico &arbol) {
     limpiarPantalla();
     cout << "\n+----------------------------------------+\n";
-    cout << "¦      INSERTAR NUEVO MIEMBRO            ¦\n";
+    cout << "?      INSERTAR NUEVO MIEMBRO            ?\n";
     cout << "+----------------------------------------+\n\n";
     
     string nombre = leerTexto("Nombre completo: ");
@@ -963,7 +1170,7 @@ void insertarNuevoMiembro(ArbolGenealogico &arbol) {
 void buscarMiembroPorNombre(ArbolGenealogico &arbol) {
     limpiarPantalla();
     cout << "\n+----------------------------------------+\n";
-    cout << "¦       BUSCAR MIEMBRO POR NOMBRE        ¦\n";
+    cout << "?       BUSCAR MIEMBRO POR NOMBRE        ?\n";
     cout << "+----------------------------------------+\n\n";
     
     string nombre = leerTexto("Nombre a buscar: ");
@@ -984,7 +1191,7 @@ void buscarMiembroPorNombre(ArbolGenealogico &arbol) {
 void modificarMiembroExistente(ArbolGenealogico &arbol) {
     limpiarPantalla();
     cout << "\n+----------------------------------------+\n";
-    cout << "¦        MODIFICAR MIEMBRO               ¦\n";
+    cout << "?        MODIFICAR MIEMBRO               ?\n";
     cout << "+----------------------------------------+\n\n";
     
     string nombre = leerTexto("Nombre del miembro a modificar: ");
@@ -1020,7 +1227,7 @@ void modificarMiembroExistente(ArbolGenealogico &arbol) {
 void eliminarMiembroDelArbol(ArbolGenealogico &arbol) {
     limpiarPantalla();
     cout << "\n+----------------------------------------+\n";
-    cout << "¦         ELIMINAR MIEMBRO               ¦\n";
+    cout << "?         ELIMINAR MIEMBRO               ?\n";
     cout << "+----------------------------------------+\n\n";
     
     string nombre = leerTexto("Nombre del miembro a ELIMINAR: ");
@@ -1033,7 +1240,7 @@ void eliminarMiembroDelArbol(ArbolGenealogico &arbol) {
     }
     
     arbol.imprimirMiembroCompleto(m);
-    cout << "\n¿Esta seguro de eliminar este miembro? (S/N): ";
+    cout << "\n?Esta seguro de eliminar este miembro? (S/N): ";
     string confirmacion;
     getline(cin, confirmacion);
     
@@ -1058,8 +1265,8 @@ int main() {
 
     limpiarPantalla();
     cout << "+-------------------------------------------------------+\n";
-    cout << "¦   SISTEMA DE ARBOL GENEALOGICO CON BALANCEO AVL       ¦\n";
-    cout << "¦           Tahuantinsuyo - Imperio Inca                ¦\n";
+    cout << "?   SISTEMA DE ARBOL GENEALOGICO CON BALANCEO AVL       ?\n";
+    cout << "?           Tahuantinsuyo - Imperio Inca                ?\n";
     cout << "+-------------------------------------------------------+\n\n";
     cout << "Cargando datos de ejemplo...\n";
     arbol.cargarDatosEjemplo();
@@ -1069,7 +1276,7 @@ int main() {
     while (true) {
         limpiarPantalla();
         cout << "\n+----------------------------------------+\n";
-        cout << "¦         MENU PRINCIPAL                 ¦\n";
+        cout << "|         MENU PRINCIPAL                 |\n";
         cout << "+----------------------------------------+\n";
         cout << "  1. Insertar nuevo miembro\n";
         cout << "  2. Buscar miembro por nombre\n";
@@ -1077,6 +1284,7 @@ int main() {
         cout << "  4. Eliminar miembro\n";
         cout << "  5. Recorridos del arbol [SUBMENU]\n";
         cout << "  6. Estadisticas [SUBMENU]\n";
+        cout << "  7. Mostrar diagrama del arbol\n";
         cout << "  0. Salir del sistema\n";
         cout << "-----------------------------------------\n";
 
@@ -1086,8 +1294,8 @@ int main() {
             case 0:
                 limpiarPantalla();
                 cout << "\n+----------------------------------------+\n";
-                cout << "¦  Gracias por usar el sistema.          ¦\n";
-                cout << "¦  ¡Hasta pronto!                        ¦\n";
+                cout << "|  Gracias por usar el sistema.          |\n";
+                cout << "|  ¡Hasta pronto!                        |\n";
                 cout << "+----------------------------------------+\n";
                 return 0;
                 
@@ -1113,6 +1321,11 @@ int main() {
                 
             case 6:
                 submenuEstadisticas(arbol);
+                break;
+                
+            case 7:
+                arbol.mostrarDiagramaArbol();
+                pausar();
                 break;
                 
             default:
